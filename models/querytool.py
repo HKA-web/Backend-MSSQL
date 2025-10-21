@@ -4,9 +4,7 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# Ambil konfigurasi SQL Server dari settings
 SQLSERVER_CONF = getattr(settings, "SQLSERVER_DEFAULT", {})
-
 
 def get_connection(server_key="server1"):
     cfg = SQLSERVER_CONF.get(server_key)
@@ -36,7 +34,7 @@ def _is_safe_query(sql):
 
 def run_query(sql, params=None, skip=0, take=None, server_key="server1"):
     params = params or []
-    result = {"message": "", "statuscode": 200, "totalcount": 0, "data": [], "skip": skip, "take": take, "kolom": []}
+    result = {"message": "", "statuscode": 200, "totalcount": 0, "data": [], "skip": skip, "take": take, "columns": []}
 
     if not _is_safe_query(sql):
         return {"message": "Query tidak diperbolehkan", "statuscode": 403}
@@ -55,9 +53,9 @@ def run_query(sql, params=None, skip=0, take=None, server_key="server1"):
 
         result.update({
             "data": [_trim_row(columns, row) for row in rows],
-            "kolom": columns,
+            "columns": columns,
             "totalcount": len(rows),
-            "message": "Query berhasil",
+            "message": "Success",
         })
 
     except pyodbc.Error as e:

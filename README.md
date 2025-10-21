@@ -5,6 +5,10 @@ EndPoin:
 ```
 http://localhost:8000/api/querytool/read/
 ```
+Method:
+```
+POST
+```
 Body:
 ```
 {
@@ -30,6 +34,10 @@ EndPoin:
 ```
 http://localhost:8000/api/querytool/create/
 ```
+Method:
+```
+POST
+```
 Body:
 ```
 {
@@ -49,6 +57,10 @@ or
 EndPoin:
 ```
 http://localhost:8000/api/querytool/update/
+```
+Method:
+```
+PUT
 ```
 Body:
 ```
@@ -71,6 +83,10 @@ or
 EndPoin:
 ```
 http://localhost:8000/api/querytool/delete/
+```
+Method:
+```
+DELETE
 ```
 Body:
 ```
