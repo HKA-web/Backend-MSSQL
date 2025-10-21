@@ -1,14 +1,6 @@
-# Blank Sub Module Backend
+# MsSQL Sub Module Backend
 
-## EndPoin
-```
-"create": "http://localhost:8000/api/querytool/create/",
-"read": "http://localhost:8000/api/querytool/read/",
-"update": "http://localhost:8000/api/querytool/update/",
-"delete": "http://localhost:8000/api/querytool/delete/"
-```
-
-### SELECT
+## SELECT
 EndPoin:
 ```
 http://localhost:8000/api/querytool/read/
@@ -33,7 +25,7 @@ or
 
 ```
 
-### INSERT
+## INSERT
 EndPoin:
 ```
 http://localhost:8000/api/querytool/create/
@@ -53,7 +45,7 @@ or
 }
 ```
 
-### UPDATE
+## UPDATE
 EndPoin:
 ```
 http://localhost:8000/api/querytool/update/
@@ -75,7 +67,7 @@ or
 }
 ```
 
-### DELETE
+## DELETE
 EndPoin:
 ```
 http://localhost:8000/api/querytool/delete/
