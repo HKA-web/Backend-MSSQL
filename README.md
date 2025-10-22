@@ -65,16 +65,17 @@ PUT
 Body:
 ```
 {
-  "sql": "UPDATE d_transaksi..t_schedule SET FC_APPROVE = 'Y' WHERE FC_SONO = 'FOP:25080454'",
-  "params": [],
-  "server": "server1",
-  "skip": 0,
-  "take": 100
+  "sql": "UPDATE d_transaksi..t_coba SET user_name='update' WHERE user_id = ?",
+  "params": [4],
+  "server": "server1"
 }
-or
+```
+
+>Optional, tidak mengembalikan nilai Primary Key
+```
 {
-  "sql": "UPDATE d_transaksi..t_schedule SET FC_APPROVE = ? WHERE FC_SONO = ?",
-  "params": ["Y", "FOP:25080454"],
+  "sql": "UPDATE d_transaksi..t_coba SET user_name='update' WHERE user_id = 4",
+  "params": [],
   "server": "server1"
 }
 ```
@@ -91,16 +92,17 @@ DELETE
 Body:
 ```
 {
-  "sql": "DELETE FROM d_transaksi..t_schedule WHERE FC_SONO='FOP:25080454'",
-  "params": [],
-  "server": "server1",
-  "skip": 0,
-  "take": 100
+  "sql": "DELETE FROM d_transaksi..t_coba WHERE user_id = ?",
+  "params": [4],
+  "server": "server1"
 }
-or
+```
+
+>Optional, tidak mengembalikan nilai Primary Key
+```
 {
-  "sql": "DELETE FROM d_transaksi..t_schedule WHERE FC_SONO = ?",
-  "params": ["FOP:25080454"],
+  "sql": "DELETE FROM d_transaksi..t_coba WHERE user_id = 4",
+  "params": [],
   "server": "server1"
 }
 ```
