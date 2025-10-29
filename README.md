@@ -3,7 +3,7 @@
 ## SELECT
 EndPoin:
 ```
-http://localhost:8000/api/querytool/read/
+http://localhost:8001/mssql/api/querytool/read/
 ```
 Method:
 ```
@@ -32,7 +32,7 @@ or
 ## INSERT
 EndPoin:
 ```
-http://localhost:8000/api/querytool/create/
+http://localhost:8001/mssql/api/querytool/create/
 ```
 Method:
 ```
@@ -56,7 +56,7 @@ or
 ## UPDATE
 EndPoin:
 ```
-http://localhost:8000/api/querytool/update/
+http://localhost:8001/mssql/api/querytool/update/
 ```
 Method:
 ```
@@ -83,7 +83,7 @@ Body:
 ## DELETE
 EndPoin:
 ```
-http://localhost:8000/api/querytool/delete/
+http://localhost:8001/mssql/api/querytool/delete/
 ```
 Method:
 ```
