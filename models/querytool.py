@@ -1,10 +1,10 @@
 import pyodbc
 import logging
 import re
+import textwrap
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
-
 SQLSERVER_CONF = getattr(settings, "SQLSERVER_DEFAULT", {})
 
 def get_connection(server_key="server1"):
@@ -23,7 +23,6 @@ def get_connection(server_key="server1"):
 
 
 def _trim_row(columns, row):
-    """Trim string di hasil SELECT"""
     return {col: val.strip() if isinstance(val, str) else val for col, val in zip(columns, row)}
 
 
@@ -33,27 +32,30 @@ def _is_safe_query(sql):
     return not any(sql_upper.startswith(f) for f in forbidden)
 
 
-def _is_complex_query(sql: str) -> bool:
+def _fix_sql2000_compat(sql: str) -> str:
     """
-    Deteksi apakah query tergolong 'berat' atau kompleks.
-    Kalau ya → pakai query COUNT terpisah.
+    - Perbaiki NVARCHAR(MAX) -> NVARCHAR(4000)
+    - Tambahkan SET NOCOUNT ON;
+    - Bungkus DECLARE jadi EXEC jika perlu
     """
-    sql_upper = sql.upper()
-    keywords = ["JOIN", "WHERE", "GROUP BY", "UNION", "HAVING", "DISTINCT"]
-    return any(k in sql_upper for k in keywords)
+    sql = re.sub(r"\bNVARCHAR\s*\(\s*MAX\s*\)", "NVARCHAR(4000)", sql, flags=re.IGNORECASE)
+    sql = textwrap.dedent(f"SET NOCOUNT ON;\n{sql.strip()}")
+    return sql
 
 
-def _extract_pk_from_where(sql: str):
+def _split_sql_batch(sql: str):
     """
-    Ekstrak nama kolom PK dari klausa WHERE, misal:
-    UPDATE ... WHERE user_id = ?
-    → return 'user_id'
+    Pisahkan query menjadi beberapa batch aman berdasarkan DECLARE, SELECT, SET, EXEC, dll.
     """
-    match = re.search(r"WHERE\s+([a-zA-Z0-9_]+)\s*=", sql, re.IGNORECASE)
-    return match.group(1) if match else None
-    
-    
+    sql = re.sub(r"\n+", "\n", sql.strip())
+    parts = re.split(r";\s*(?=(DECLARE|SELECT|SET|EXEC|INSERT|UPDATE|DELETE)\b)", sql, flags=re.IGNORECASE)
+    return [p.strip() for p in parts if p.strip()]
+
+
 def run_query(sql, params=None, skip=0, take=None, server_key="server1"):
+    import textwrap
+    import re
+
     params = params or []
     result = {
         "message": "",
@@ -70,38 +72,40 @@ def run_query(sql, params=None, skip=0, take=None, server_key="server1"):
 
     conn = None
     cursor = None
-
     try:
         conn = get_connection(server_key)
         cursor = conn.cursor()
 
-        # Tentukan apakah perlu query COUNT terpisah
-        use_count_query = _is_complex_query(sql)
+        # Bersihkan dan tambahkan SET NOCOUNT ON
+        sql = textwrap.dedent(f"SET NOCOUNT ON;\n{sql.strip()}")
 
-        totalcount = 0
-        if use_count_query:
-            try:
-                count_sql = f"SELECT COUNT(*) AS total FROM ({sql}) AS subquery"
-                cursor.execute(count_sql, params)
-                totalcount = cursor.fetchone()[0]
-            except Exception as e:
-                logger.warning(f"Gagal hitung totalcount cepat: {e}")
-                totalcount = 0
+        # Deteksi jika ada DECLARE di awal -> bungkus EXEC
+        if re.match(r"^\s*DECLARE\s", sql, re.IGNORECASE):
+            safe_sql = sql.replace("'", "''")
+            sql = f"EXEC('{safe_sql}')"
 
-        # Jalankan query utama
         cursor.execute(sql, params)
-        columns = [desc[0] for desc in cursor.description]
-        rows = cursor.fetchall()
 
-        # Kalau tidak pakai count query, totalcount dihitung dari hasil fetch
-        if not use_count_query:
-            totalcount = len(rows)
+        last_result = None
+        # Ambil semua resultset sampai habis
+        while True:
+            if cursor.description:
+                last_result = {
+                    "columns": [col[0] for col in cursor.description],
+                    "rows": cursor.fetchall(),
+                }
+            if not cursor.nextset():
+                break
 
-        # Pagination manual
+        if last_result:
+            columns = last_result["columns"]
+            rows = last_result["rows"]
+        else:
+            columns, rows = [], []
+
+        totalcount = len(rows)
         if take is not None:
             rows = rows[skip:skip + take]
-        else:
-            rows = rows[skip:]
 
         result.update({
             "data": [_trim_row(columns, row) for row in rows],
@@ -109,23 +113,22 @@ def run_query(sql, params=None, skip=0, take=None, server_key="server1"):
             "totalcount": totalcount,
             "message": "Success",
         })
+        return result
 
     except pyodbc.Error as e:
-        logger.error("Query gagal: %s | params: %s | error: %s", sql, params, e)
+        logger.error("Query gagal: %s | error: %s", sql[:200], e)
         return {"message": f"Database error: {str(e)}", "statuscode": 500}
+
     except Exception as e:
         logger.exception("Internal error saat query")
         return {"message": f"Internal error: {str(e)}", "statuscode": 500}
+
     finally:
         try:
-            if cursor:
-                cursor.close()
-            if conn:
-                conn.close()
+            if cursor: cursor.close()
+            if conn: conn.close()
         except Exception:
             pass
-
-    return result
 
 
 def insert_query(sql, params=None, server_key="server1"):
