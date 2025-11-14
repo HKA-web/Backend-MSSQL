@@ -75,11 +75,8 @@ def run_query(sql, params=None, skip=0, take=None, server_key="server1"):
     try:
         conn = get_connection(server_key)
         cursor = conn.cursor()
-
-        # Bersihkan dan tambahkan SET NOCOUNT ON
         sql = textwrap.dedent(f"SET NOCOUNT ON;\n{sql.strip()}")
 
-        # Deteksi jika ada DECLARE di awal -> bungkus EXEC
         if re.match(r"^\s*DECLARE\s", sql, re.IGNORECASE):
             safe_sql = sql.replace("'", "''")
             sql = f"EXEC('{safe_sql}')"
@@ -87,7 +84,6 @@ def run_query(sql, params=None, skip=0, take=None, server_key="server1"):
         cursor.execute(sql, params)
 
         last_result = None
-        # Ambil semua resultset sampai habis
         while True:
             if cursor.description:
                 last_result = {
@@ -104,8 +100,10 @@ def run_query(sql, params=None, skip=0, take=None, server_key="server1"):
             columns, rows = [], []
 
         totalcount = len(rows)
-        if take is not None:
+        if take is not None and take != -1:
             rows = rows[skip:skip + take]
+        elif take == -1:
+            rows = rows[skip:]
 
         result.update({
             "data": [_trim_row(columns, row) for row in rows],
