@@ -6,8 +6,6 @@ from django.conf import settings
 from mssql.serializers.querytool import QueryToolSerializer
 
 class QueryToolViewSet(viewsets.ViewSet):
-    """API untuk menjalankan query SQL Server multi-connection."""
-
     @action(detail=False, url_path='read', url_name='query', methods=['post'])
     def query(self, request):
         serializer = QueryToolSerializer(data=request.data)
