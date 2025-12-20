@@ -51,7 +51,15 @@ def _split_sql_batch(sql: str):
     parts = re.split(r";\s*(?=(DECLARE|SELECT|SET|EXEC|INSERT|UPDATE|DELETE)\b)", sql, flags=re.IGNORECASE)
     return [p.strip() for p in parts if p.strip()]
 
-
+def _extract_pk_from_where(sql: str):
+    """
+    Ekstrak nama kolom PK dari klausa WHERE, misal:
+    UPDATE ... WHERE user_id = ?
+    → return 'user_id'
+    """
+    match = re.search(r"WHERE\s+([a-zA-Z0-9_]+)\s*=", sql, re.IGNORECASE)
+    return match.group(1) if match else None
+    
 def run_query(sql, params=None, skip=0, take=None, server_key="server1"):
     import textwrap
     import re
