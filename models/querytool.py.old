@@ -51,15 +51,7 @@ def _split_sql_batch(sql: str):
     parts = re.split(r";\s*(?=(DECLARE|SELECT|SET|EXEC|INSERT|UPDATE|DELETE)\b)", sql, flags=re.IGNORECASE)
     return [p.strip() for p in parts if p.strip()]
 
-def _extract_pk_from_where(sql: str):
-    """
-    Ekstrak nama kolom PK dari klausa WHERE, misal:
-    UPDATE ... WHERE user_id = ?
-    → return 'user_id'
-    """
-    match = re.search(r"WHERE\s+([a-zA-Z0-9_]+)\s*=", sql, re.IGNORECASE)
-    return match.group(1) if match else None
-    
+
 def run_query(sql, params=None, skip=0, take=None, server_key="server1"):
     import textwrap
     import re
@@ -81,86 +73,38 @@ def run_query(sql, params=None, skip=0, take=None, server_key="server1"):
     conn = None
     cursor = None
     try:
-        if take is not None and take > 0 and 'ids' in sql:
-            conn = get_connection(server_key)
-            cursor = conn.cursor()
-            
-            cursor.execute(f'''select count (1) as total from ({sql}) AS t ''', params)
-            totalrow = cursor.fetchone() 
-            totalcount = totalrow[0] if totalrow else 0
-            
-            sql = f'''
-                    SELECT TOP {take} * FROM (
-                        SELECT TOP {skip + take} * FROM ({sql}) AS a ORDER BY ids ASC
-                    ) AS b 
-                    WHERE ids NOT IN (
-                        SELECT TOP {skip} ids FROM ({sql}) AS c ORDER BY ids ASC
-                    ) 
-                    ORDER BY ids ASC
-                '''
-                    
-            sql = textwrap.dedent(f"SET NOCOUNT ON;\n{sql.strip()}")
+        conn = get_connection(server_key)
+        cursor = conn.cursor()
+        sql = textwrap.dedent(f"SET NOCOUNT ON;\n{sql.strip()}")
 
-            if re.match(r"^\s*DECLARE\s", sql, re.IGNORECASE):
-                safe_sql = sql.replace("'", "''")
-                sql = f"EXEC('{safe_sql}')"
+        if re.match(r"^\s*DECLARE\s", sql, re.IGNORECASE):
+            safe_sql = sql.replace("'", "''")
+            sql = f"EXEC('{safe_sql}')"
 
-            cursor.execute(sql, params)
+        cursor.execute(sql, params)
 
-            last_result = None
-            while True:
-                if cursor.description:
-                    last_result = {
-                        "columns": [col[0] for col in cursor.description],
-                        "rows": cursor.fetchall(),
-                    }
-                if not cursor.nextset():
-                    break
+        last_result = None
+        while True:
+            if cursor.description:
+                last_result = {
+                    "columns": [col[0] for col in cursor.description],
+                    "rows": cursor.fetchall(),
+                }
+            if not cursor.nextset():
+                break
 
-            if last_result:
-                columns = last_result["columns"]
-                rows = last_result["rows"]
-            else:
-                columns, rows = [], []
-
-            if 'ids' not in sql:        
-                if take is not None and take != -1:
-                    rows = rows[skip:skip + take]
-                elif take == -1:
-                    rows = rows[skip:]  
+        if last_result:
+            columns = last_result["columns"]
+            rows = last_result["rows"]
         else:
-            conn = get_connection(server_key)
-            cursor = conn.cursor()
-            sql = textwrap.dedent(f"SET NOCOUNT ON;\n{sql.strip()}")
+            columns, rows = [], []
 
-            if re.match(r"^\s*DECLARE\s", sql, re.IGNORECASE):
-                safe_sql = sql.replace("'", "''")
-                sql = f"EXEC('{safe_sql}')"
+        totalcount = len(rows)
+        if take is not None and take != -1:
+            rows = rows[skip:skip + take]
+        elif take == -1:
+            rows = rows[skip:]
 
-            cursor.execute(sql, params)
-
-            last_result = None
-            while True:
-                if cursor.description:
-                    last_result = {
-                        "columns": [col[0] for col in cursor.description],
-                        "rows": cursor.fetchall(),
-                    }
-                if not cursor.nextset():
-                    break
-
-            if last_result:
-                columns = last_result["columns"]
-                rows = last_result["rows"]
-            else:
-                columns, rows = [], []
-
-            totalcount = len(rows)
-            if take is not None and take != -1:
-                rows = rows[skip:skip + take]
-            elif take == -1:
-                rows = rows[skip:]
-        print('Xxxxxx', sql)
         result.update({
             "data": [_trim_row(columns, row) for row in rows],
             "columns": columns,
@@ -305,5 +249,4 @@ def delete_query(sql, params=None, server_key="server1"):
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
-
 
